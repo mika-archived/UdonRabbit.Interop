@@ -1,0 +1,17 @@
+{
+    "name": "Mochizuki.VRChat.Interop.Validator",
+    "references": [
+        "Mochizuki.VRChat.Kitsune",
+        "VRC.Udon",
+        "UdonSharp.Editor",
+        "UdonSharp.Runtime"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": []
+}
