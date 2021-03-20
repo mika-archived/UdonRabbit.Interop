@@ -1,0 +1,17 @@
+{
+    "name": "Mochizuki.VRChat.Interop",
+    "references": [
+        "UdonSharp.Runtime",
+        "Mochizuki.VRChat.Interop.Validator",
+        "Mochizuki.VRChat.Kitsune",
+        "Unity.TextMeshPro"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": []
+}
