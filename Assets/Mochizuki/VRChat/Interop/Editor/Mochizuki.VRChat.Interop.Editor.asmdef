@@ -1,6 +1,8 @@
 {
     "name": "Mochizuki.VRChat.Interop.Editor",
     "references": [
+        "Mochizuki.VRChat.Interop",
+        "Mochizuki.VRChat.Interop.Validator",
         "UdonSharp.Editor",
         "UdonSharp.Runtime",
         "VRC.Udon",
@@ -14,6 +16,13 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
+        "0Harmony.dll",
+        "Microsoft.CodeAnalysis.dll",
+        "Microsoft.CodeAnalysis.CSharp.dll",
+        "VRCSDK3.dll",
+        "VRCSDKBase.dll",
+        "VRCSDKBase-Editor.dll",
+        "VRC.Udon.Common.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": []
