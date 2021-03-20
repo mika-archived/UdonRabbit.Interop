@@ -15,7 +15,7 @@ namespace Mochizuki.VRChat.Interop.Samples
     public class SwitchSpotLight : UdonSharpBehaviour
     {
         [SerializeField]
-        [RequestArgumentType(typeof(float))]
+        [RequestArgumentType(typeof(bool))]
         private EventListener listener;
 
         [SerializeField]
