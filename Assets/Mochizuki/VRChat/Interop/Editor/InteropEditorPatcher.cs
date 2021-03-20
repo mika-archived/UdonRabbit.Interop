@@ -22,6 +22,7 @@ using UdonSharpEditor;
 
 using UnityEditor;
 
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 using VRC.Udon;
@@ -33,8 +34,20 @@ namespace Mochizuki.VRChat.Interop
     [InitializeOnLoad]
     public static class InteropEditorPatcher
     {
+        private static readonly MetadataReference[] References;
+
         static InteropEditorPatcher()
         {
+            References = new MetadataReference[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location), // mscorlib
+                MetadataReference.CreateFromFile(typeof(Object).Assembly.Location), // UnityEngine
+                MetadataReference.CreateFromFile(typeof(Editor).Assembly.Location), // UnityEditor
+                MetadataReference.CreateFromFile(typeof(UdonBehaviour).Assembly.Location), // VRC.Udon
+                MetadataReference.CreateFromFile(typeof(UdonSharpBehaviour).Assembly.Location), // UdonSharp
+                MetadataReference.CreateFromFile(typeof(EventListener).Assembly.Location) // Mochizuki.VRChat.Interop
+            };
+
             var harmony = new Harmony("moe.mochizuki.vrchat.interop");
 
             void ApplyPatchForDrawPublicVariableField()
@@ -42,35 +55,12 @@ namespace Mochizuki.VRChat.Interop
                 // patched to https://github.com/MerlinVR/UdonSharp/blob/v0.19.6/Assets/UdonSharp/Editor/Editors/UdonSharpGUI.cs#L1050
                 var original = typeof(UdonSharpGUI).GetMethods(BindingFlags.Static | BindingFlags.NonPublic).FirstOrDefault(w => w.Name == "DrawPublicVariableField");
                 var postfix = typeof(InteropEditorPatcher).GetMethod(nameof(DrawPublicVariableFieldPostfix));
+                var finalizer = typeof(InteropEditorPatcher).GetMethod(nameof(DrawPublicVariableFieldFinalizer));
 
-                harmony.Patch(original, null, new HarmonyMethod(postfix));
+                harmony.Patch(original, null, new HarmonyMethod(postfix), null, new HarmonyMethod(finalizer));
             }
 
-            // ApplyPatchForDoObjectField();
             ApplyPatchForDrawPublicVariableField();
-        }
-
-        private static bool ShouldCheckTypeValidation(UdonBehaviour currentBehaviour, string symbol, Type variableType, object @return)
-        {
-            if (@return == null || variableType != typeof(UdonBehaviour))
-                return false;
-
-            if (!UdonSharpEditorUtility.IsUdonSharpBehaviour(currentBehaviour))
-                return false;
-
-            if (UdonSharpProgramAsset.GetBehaviourClass((UdonBehaviour) @return) != typeof(EventListener))
-                return false;
-
-            var proxyBehaviour = UdonSharpEditorUtility.GetProxyBehaviour(currentBehaviour);
-            var variable = proxyBehaviour.GetType().GetField(symbol, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (variable == null)
-                return false;
-
-            var attr = variable.GetCustomAttribute<RequestArgumentTypeAttribute>();
-            if (attr == null)
-                return false;
-
-            return true;
         }
 
         // ReSharper disable once InconsistentNaming
@@ -103,37 +93,20 @@ namespace Mochizuki.VRChat.Interop
                     continue;
 
                 foreach (var s in publicVariables.VariableSymbols)
-                    if (publicVariables.TryGetVariableValue(s, out var obj))
-                        if (obj is Object o)
-                            if (o == (Object) __result && behaviour != currentBehaviour)
-                            {
-                                callers.Add((behaviour, s));
-                                break;
-                            }
-            }
-
-            string ReadAsString(UdonBehaviour behaviour)
-            {
-                return ((UdonSharpProgramAsset) behaviour.programSource).sourceCsScript.text;
+                    if (publicVariables.TryGetVariableValue(s, out var obj) && obj is Object o && o == (Object) __result && behaviour != currentBehaviour)
+                    {
+                        callers.Add((behaviour, s));
+                        break;
+                    }
             }
 
             foreach (var (behaviour, refSymbol) in callers)
             {
-                var cs = ReadAsString(behaviour);
+                var cs = ((UdonSharpProgramAsset) behaviour.programSource).sourceCsScript.text;
                 var tree = CSharpSyntaxTree.ParseText(cs);
 
-                var references = new MetadataReference[]
-                {
-                    MetadataReference.CreateFromFile(typeof(object).Assembly.Location), // mscorlib
-                    MetadataReference.CreateFromFile(typeof(Object).Assembly.Location), // UnityEngine
-                    MetadataReference.CreateFromFile(typeof(Editor).Assembly.Location), // UnityEditor
-                    MetadataReference.CreateFromFile(typeof(UdonBehaviour).Assembly.Location), // VRC.Udon
-                    MetadataReference.CreateFromFile(typeof(UdonSharpBehaviour).Assembly.Location), // UdonSharp
-                    MetadataReference.CreateFromFile(typeof(EventListener).Assembly.Location) // Mochizuki.VRChat.Interop
-                };
-
                 var compilation = CSharpCompilation.Create("Mochizuki.VRChat.Internal")
-                                                   .AddReferences(references)
+                                                   .AddReferences(References)
                                                    .AddSyntaxTrees(tree);
                 var model = compilation.GetSemanticModel(tree);
                 var root = tree.GetRoot();
@@ -180,6 +153,36 @@ namespace Mochizuki.VRChat.Interop
                     }
                 }
             }
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public static void DrawPublicVariableFieldFinalizer(Exception __exception)
+        {
+            if (__exception is ExitGUIException e)
+                throw e;
+        }
+
+        private static bool ShouldCheckTypeValidation(UdonBehaviour currentBehaviour, string symbol, Type variableType, object @return)
+        {
+            if (@return == null || variableType != typeof(UdonBehaviour))
+                return false;
+
+            if (!UdonSharpEditorUtility.IsUdonSharpBehaviour(currentBehaviour))
+                return false;
+
+            if (UdonSharpProgramAsset.GetBehaviourClass((UdonBehaviour) @return) != typeof(EventListener))
+                return false;
+
+            var proxyBehaviour = UdonSharpEditorUtility.GetProxyBehaviour(currentBehaviour);
+            var variable = proxyBehaviour.GetType().GetField(symbol, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (variable == null)
+                return false;
+
+            var attr = variable.GetCustomAttribute<RequestArgumentTypeAttribute>();
+            if (attr == null)
+                return false;
+
+            return true;
         }
     }
 }
