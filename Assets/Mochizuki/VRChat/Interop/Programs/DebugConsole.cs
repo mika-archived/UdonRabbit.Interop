@@ -45,7 +45,8 @@ namespace Mochizuki.VRChat.Interop
             for (var i = 0; i < _len; i++)
                 text += _lines[(maxLines + _ptr - _len + i) % maxLines];
 
-            console.text = text;
+            if (_hasConsole)
+                console.text = text;
         }
 
         public void Clear()
@@ -56,7 +57,8 @@ namespace Mochizuki.VRChat.Interop
             for (var i = 0; i < maxLines; i++)
                 _lines[i] = "";
 
-            console.text = "";
+            if (_hasConsole)
+                console.text = "";
         }
     }
 }
