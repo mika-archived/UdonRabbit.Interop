@@ -10,6 +10,8 @@ using System.Reflection;
 
 using HarmonyLib;
 
+using JetBrains.Annotations;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -63,94 +65,39 @@ namespace Mochizuki.VRChat.Interop
             ApplyPatchForDrawPublicVariableField();
         }
 
+        [PublicAPI]
+        public static void RegisterReferences(Type t)
+        {
+            References.AddItem(MetadataReference.CreateFromFile(t.Assembly.Location));
+        }
+
         // ReSharper disable once InconsistentNaming
         public static void DrawPublicVariableFieldPostfix(UdonBehaviour currentBehaviour, string symbol, Type variableType, ref object __result)
         {
-            if (!ShouldCheckTypeValidation(currentBehaviour, symbol, variableType, __result))
+            var (r, attr) = ShouldCheckTypeValidation(currentBehaviour, symbol, variableType, __result);
+            if (!r)
                 return;
 
-            var proxyBehaviour = UdonSharpEditorUtility.GetProxyBehaviour(currentBehaviour);
-            var variable = proxyBehaviour.GetType().GetField(symbol, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-            // ReSharper disable once AssignNullToNotNullAttribute
-            var attr = variable.GetCustomAttribute<RequestArgumentTypeAttribute>();
-
-            // maybe to heavy
-
-            var callers = new List<(UdonBehaviour, string)>();
-
-            var rootObjects = SceneManager.GetActiveScene().GetRootGameObjects();
-            var components = new List<UdonBehaviour>();
-
-            // currently only supports UdonSharpBehaviour inherited classes
-            foreach (var o in rootObjects)
-                components.AddRange(o.GetComponentsInChildren<UdonBehaviour>().Where(UdonSharpEditorUtility.IsUdonSharpBehaviour));
-
-            foreach (var behaviour in components)
-            {
-                var publicVariables = behaviour.publicVariables;
-                if (publicVariables == null || publicVariables.VariableSymbols.Count == 0)
-                    continue;
-
-                foreach (var s in publicVariables.VariableSymbols)
-                    if (publicVariables.TryGetVariableValue(s, out var obj) && obj is Object o && o == (Object) __result && behaviour != currentBehaviour)
-                    {
-                        callers.Add((behaviour, s));
-                        break;
-                    }
-            }
+            var callers = CollectListenerReferences(currentBehaviour, __result);
 
             foreach (var (behaviour, refSymbol) in callers)
             {
-                var cs = ((UdonSharpProgramAsset) behaviour.programSource).sourceCsScript.text;
-                var tree = CSharpSyntaxTree.ParseText(cs);
-
-                var compilation = CSharpCompilation.Create("Mochizuki.VRChat.Internal")
-                                                   .AddReferences(References)
-                                                   .AddSyntaxTrees(tree);
-                var model = compilation.GetSemanticModel(tree);
-                var root = tree.GetRoot();
-
-                var argumentPasser = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Select(w => w.Expression).Where(w =>
-                {
-                    if (w is MemberAccessExpressionSyntax syntax)
-                        return syntax.Name.Identifier.Text == nameof(EventListener.SetArgument);
-
-                    return false;
-                }).Cast<MemberAccessExpressionSyntax>();
-
-                var listenerDeclaration = root
-                                          .DescendantNodes()
-                                          .OfType<FieldDeclarationSyntax>()
-                                          .SelectMany(w => w.Declaration.Variables)
-                                          .First(w => w.Identifier.Text == refSymbol);
-
-                var declarationSymbol = model.GetDeclaredSymbol(listenerDeclaration);
+                var (root, model) = CreateAnalysisModels(behaviour);
+                var argumentPasser = CollectEventListenerArgumentPassingSyntax(root);
+                var declarationSymbol = FindEventListenerVariableDeclarationSyntax(root, model, refSymbol);
 
                 foreach (var syntax in argumentPasser)
                 {
-                    // check the accessor variable is referenced listener?
-                    var caller = model.GetSymbolInfo(syntax.Expression);
-                    if (!declarationSymbol.Equals(caller.Symbol))
+                    var (isValidReference, isTypeEquals) = IsArgumentEqualsToRequested(declarationSymbol, syntax, model, attr.RequestedType);
+
+                    if (!isValidReference)
                         continue;
 
-                    // check the accessor method is SetArgument?
-                    var invocation = (InvocationExpressionSyntax) syntax.Parent;
-                    var method = (MemberAccessExpressionSyntax) invocation.Expression;
-                    var identifier = (IdentifierNameSyntax) method.Name;
-                    if (identifier.Identifier.Text != nameof(EventListener.SetArgument))
+                    if (isTypeEquals)
                         continue;
 
-                    // check the argument type equals to requested type?
-                    var argument = invocation.ArgumentList.Arguments[0];
-                    var declaration = model.GetTypeInfo(argument.Expression);
-
-                    if (!declaration.Type.Equals(model.Compilation.GetTypeByMetadataName(attr.RequestedType.FullName)))
-                    {
-                        // invalid value
-                        EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting {attr.RequestedType.FullName}, but the sender is sending other type(s), so it could not be applied.", MessageType.Warning);
-                        return;
-                    }
+                    EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting {attr.RequestedType.FullName}, but the sender is sending other type(s), so it could not be applied.", MessageType.Warning);
+                    return;
                 }
             }
         }
@@ -162,27 +109,97 @@ namespace Mochizuki.VRChat.Interop
                 throw e;
         }
 
-        private static bool ShouldCheckTypeValidation(UdonBehaviour currentBehaviour, string symbol, Type variableType, object @return)
+        private static (bool, RequestArgumentTypeAttribute) ShouldCheckTypeValidation(UdonBehaviour currentBehaviour, string symbol, Type variableType, object @return)
         {
             if (@return == null || variableType != typeof(UdonBehaviour))
-                return false;
+                return (false, null);
 
             if (!UdonSharpEditorUtility.IsUdonSharpBehaviour(currentBehaviour))
-                return false;
+                return (false, null);
 
             if (UdonSharpProgramAsset.GetBehaviourClass((UdonBehaviour) @return) != typeof(EventListener))
-                return false;
+                return (false, null);
 
             var proxyBehaviour = UdonSharpEditorUtility.GetProxyBehaviour(currentBehaviour);
             var variable = proxyBehaviour.GetType().GetField(symbol, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             if (variable == null)
-                return false;
+                return (false, null);
 
             var attr = variable.GetCustomAttribute<RequestArgumentTypeAttribute>();
-            if (attr == null)
-                return false;
+            return attr == null ? (false, null) : (true, attr);
+        }
 
-            return true;
+        private static List<(UdonBehaviour, string)> CollectListenerReferences(UdonBehaviour currentBehaviour, object @return)
+        {
+            var callers = new List<(UdonBehaviour, string)>();
+            var rootObjects = SceneManager.GetActiveScene().GetRootGameObjects();
+            var components = new List<UdonBehaviour>();
+
+            foreach (var o in rootObjects)
+                components.AddRange(o.GetComponentsInChildren<UdonBehaviour>().Where(UdonSharpEditorUtility.IsUdonSharpBehaviour));
+
+            foreach (var behaviour in components)
+            {
+                var publicVariables = behaviour.publicVariables;
+                if (publicVariables == null || publicVariables.VariableSymbols.Count == 0)
+                    continue;
+
+                foreach (var s in publicVariables.VariableSymbols)
+                    if (publicVariables.TryGetVariableValue(s, out var obj) && obj is Object o && o == (Object) @return && behaviour != currentBehaviour)
+                    {
+                        callers.Add((behaviour, s));
+                        break;
+                    }
+            }
+
+            return callers;
+        }
+
+        private static (SyntaxNode, SemanticModel) CreateAnalysisModels(UdonBehaviour behaviour)
+        {
+            var source = ((UdonSharpProgramAsset) behaviour.programSource).sourceCsScript.text;
+            var syntax = CSharpSyntaxTree.ParseText(source);
+
+            var compilationUnit = CSharpCompilation.Create("Mochizuki.VRChat.Internal")
+                                                   .AddReferences(References)
+                                                   .AddSyntaxTrees(syntax);
+
+            return (syntax.GetRoot(), compilationUnit.GetSemanticModel(syntax));
+        }
+
+        private static IEnumerable<MemberAccessExpressionSyntax> CollectEventListenerArgumentPassingSyntax(SyntaxNode node)
+        {
+            return node.DescendantNodes().OfType<InvocationExpressionSyntax>().Select(w => w.Expression).Where(w =>
+            {
+                if (w is MemberAccessExpressionSyntax syntax)
+                    return syntax.Name.Identifier.Text == nameof(EventListener.SetArgument);
+
+                return false;
+            }).Cast<MemberAccessExpressionSyntax>();
+        }
+
+        private static ISymbol FindEventListenerVariableDeclarationSyntax(SyntaxNode node, SemanticModel model, string symbol)
+        {
+            var declaration = node.DescendantNodes().OfType<FieldDeclarationSyntax>().SelectMany(w => w.Declaration.Variables).First(w => w.Identifier.Text == symbol);
+            return model.GetDeclaredSymbol(declaration);
+        }
+
+        private static (bool, bool) IsArgumentEqualsToRequested(ISymbol symbol, MemberAccessExpressionSyntax syntax, SemanticModel model, Type t)
+        {
+            var caller = model.GetSymbolInfo(syntax.Expression);
+            if (!symbol.Equals(caller.Symbol))
+                return (false, false);
+
+            var invocation = (InvocationExpressionSyntax) syntax.Parent;
+            var accessor = (MemberAccessExpressionSyntax) invocation.Expression;
+            var identifier = (IdentifierNameSyntax) accessor.Name;
+            if (identifier.Identifier.Text != nameof(EventListener.SetArgument))
+                return (false, false);
+
+            var argument = invocation.ArgumentList.Arguments[0];
+            var declaration = model.GetTypeInfo(argument.Expression);
+
+            return (true, declaration.Type.Equals(model.Compilation.GetTypeByMetadataName(t.FullName)));
         }
     }
 }
