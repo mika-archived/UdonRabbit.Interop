@@ -14,13 +14,6 @@ namespace Mochizuki.VRChat.Interop.Samples
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     public class SwitchSpotLight : UdonSharpBehaviour
     {
-        [SerializeField]
-        [RequestArgumentType(typeof(bool))]
-        private EventListener listener;
-
-        [SerializeField]
-        private Light lighting;
-
         private void Start()
         {
             lighting.enabled = false;
@@ -33,5 +26,16 @@ namespace Mochizuki.VRChat.Interop.Samples
 
             lighting.enabled = (bool) listener.GetArgument();
         }
+
+#pragma warning disable CS0649
+
+        [SerializeField]
+        [RequestArgumentType(typeof(bool))]
+        private EventListener listener;
+
+        [SerializeField]
+        private Light lighting;
+
+#pragma warning restore CS0649
     }
 }
