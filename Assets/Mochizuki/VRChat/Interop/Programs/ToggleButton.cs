@@ -14,17 +14,10 @@ namespace Mochizuki.VRChat.Interop
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class ToggleButton : UdonSharpBehaviour
     {
-        [SerializeField]
-        private bool initialState;
-
-        [SerializeField]
-        private EventListener listener;
-
-        [SerializeField]
-        private InteropLogger logger;
-
         private bool _hasListener;
         private bool _hasLogger;
+        private bool _isInteracted;
+        private bool _localState;
 
         [UdonSynced]
         private bool _state;
@@ -34,6 +27,12 @@ namespace Mochizuki.VRChat.Interop
             _state = initialState;
             _hasListener = listener != null;
             _hasLogger = logger != null;
+        }
+
+        private void Update()
+        {
+            if (_isInteracted && Networking.IsOwner(Networking.LocalPlayer, gameObject))
+                ToggleState();
         }
 
         public override void Interact()
@@ -47,37 +46,41 @@ namespace Mochizuki.VRChat.Interop
             if (_hasLogger)
                 logger.LogInfo($"{nameof(Interact)} - Request Manual Synchronization");
 
-            _state = !_state;
+            _isInteracted = true;
+        }
+
+        private void ToggleState()
+        {
+            _isInteracted = false;
+            _localState = !_localState;
 
             // for owner
             if (_hasListener)
             {
-                listener.SetArgument(_state);
+                listener.SetArgument(_localState);
                 listener.OnInteracted();
             }
 
-            RequestSerialization(); // for other users
+            RequestSerialization();
         }
 
-        public override bool OnOwnershipRequest(VRCPlayerApi requestingPlayer, VRCPlayerApi requestedOwner)
+        public override void OnPlayerJoined(VRCPlayerApi player)
         {
-            if (_hasLogger)
-                logger.LogInfo($"{nameof(OnOwnershipRequest)} - Request Transfer Ownership to {requestedOwner.displayName} - Approved");
-            return true;
-        }
+            if (player == Networking.LocalPlayer)
+                return;
 
-        public override void OnOwnershipTransferred(VRCPlayerApi player)
-        {
-            if (_hasLogger)
-                logger.LogInfo($"{nameof(OnOwnershipTransferred)} - Ownership is transferred to {player.displayName}");
+            if (Networking.IsOwner(Networking.LocalPlayer, gameObject))
+                RequestSerialization();
         }
 
         public override void OnPreSerialization()
         {
+            _state = _localState;
+
             if (_hasLogger)
             {
                 logger.LogInfo($"{nameof(OnPreSerialization)} - Request Serialization Variables for Synchronization");
-                logger.LogInfo($"{nameof(OnPreSerialization)} - Current State is {!_state}");
+                logger.LogInfo($"{nameof(OnPreSerialization)} - Current State is {_state}");
             }
         }
 
@@ -89,11 +92,26 @@ namespace Mochizuki.VRChat.Interop
                 logger.LogInfo($"{nameof(OnDeserialization)} - Current State is {_state}");
             }
 
+            _localState = _state;
+
             if (_hasListener)
             {
-                listener.SetArgument(_state);
+                listener.SetArgument(_localState);
                 listener.OnInteracted();
             }
         }
+
+#pragma warning disable CS0649
+
+        [SerializeField]
+        private bool initialState;
+
+        [SerializeField]
+        private EventListener listener;
+
+        [SerializeField]
+        private InteropLogger logger;
+
+#pragma warning restore CS0649
     }
 }
