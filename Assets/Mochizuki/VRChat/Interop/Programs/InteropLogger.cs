@@ -14,12 +14,6 @@ namespace Mochizuki.VRChat.Interop
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     public class InteropLogger : UdonSharpBehaviour
     {
-        [SerializeField]
-        private DebugConsole console;
-
-        [SerializeField]
-        private string @namespace;
-
         private bool _hasConsole;
 
         private void Start()
@@ -47,5 +41,15 @@ namespace Mochizuki.VRChat.Interop
             if (_hasConsole)
                 console.AddLine($"[{DateTime.Now:T}] [<color=#ff1744>ERROR</color>] {str}");
         }
+
+#pragma warning disable CS0649
+
+        [SerializeField]
+        private DebugConsole console;
+
+        [SerializeField]
+        private string @namespace;
+
+#pragma warning restore CS0649
     }
 }
