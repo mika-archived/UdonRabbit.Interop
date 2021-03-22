@@ -47,4 +47,5 @@
 *.lxo filter=lfs diff=lfs merge=lfs -text
 
 # specified
-Assets/Mochizuki/VRChat/Interop/Fonts/NotoSansJP-Medium[[:space:]]SDF.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mochizuki/VRChat/Interop/Fonts/*.asset  filter=lfs diff=lfs merge=lfs -text
+Assets/Mochizuki/VRChat/Interop/Models/*.asset filter=lfs diff=lfs merge=lfs -text
