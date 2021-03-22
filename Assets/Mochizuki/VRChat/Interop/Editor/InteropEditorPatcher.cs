@@ -98,9 +98,9 @@ namespace Mochizuki.VRChat.Interop
                 if (attrs.OfType<RequestArgumentTypeAttribute>().Any())
                 {
                     var attr = attrs.OfType<RequestArgumentTypeAttribute>().First();
-                    if (!IsArgumentEqualsToRequested(declarationSymbol, argumentPasser, model, attr.RequestedType))
+                    if (!IsArgumentEqualsToRequested(declarationSymbol, argumentPasser, model, attr.RequestedType, out var assign))
                     {
-                        EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting {attr.RequestedType.FullName}, but the one or more sender is sending other type(s), so it could not be applied.", MessageType.Warning);
+                        EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting {model.Compilation.GetTypeByMetadataName(attr.RequestedType.FullName).ToDisplayString()}, but the one or more sender is assigning {assign}, so it could not be applied.", MessageType.Warning);
                         hasWarnings = true;
                     }
                 }
@@ -204,7 +204,7 @@ namespace Mochizuki.VRChat.Interop
             return model.GetDeclaredSymbol(declaration);
         }
 
-        private static bool IsArgumentEqualsToRequested(ISymbol symbol, IEnumerable<MemberAccessExpressionSyntax> callers, SemanticModel model, Type t)
+        private static bool IsArgumentEqualsToRequested(ISymbol symbol, IEnumerable<MemberAccessExpressionSyntax> callers, SemanticModel model, Type t, out string assign)
         {
             foreach (var syntax in callers)
             {
@@ -221,10 +221,14 @@ namespace Mochizuki.VRChat.Interop
                 var argument = invocation.ArgumentList.Arguments[0];
                 var declaration = model.GetTypeInfo(argument.Expression);
 
-                if (!declaration.Type.Equals(model.Compilation.GetTypeByMetadataName(t.FullName)))
-                    return false;
+                if (declaration.Type.Equals(model.Compilation.GetTypeByMetadataName(t.FullName)))
+                    continue;
+
+                assign = declaration.Type.ToDisplayString();
+                return false;
             }
 
+            assign = null;
             return true;
         }
 
