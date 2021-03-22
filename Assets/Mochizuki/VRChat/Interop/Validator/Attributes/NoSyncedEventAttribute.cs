@@ -13,13 +13,5 @@ namespace Mochizuki.VRChat.Interop.Validator.Attributes
     [AttributeUsage(AttributeTargets.Field)]
     [Conditional("UNITY_EDITOR")]
     [PublicAPI]
-    public class RequestArgumentTypeAttribute : Attribute
-    {
-        public Type RequestedType { get; }
-
-        public RequestArgumentTypeAttribute(Type t)
-        {
-            RequestedType = t;
-        }
-    }
+    public class NoSyncedEventAttribute : Attribute { }
 }

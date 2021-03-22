@@ -3,17 +3,31 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+using Mochizuki.VRChat.Interop.Validator.Attributes;
+
 using UdonSharp;
 
 using UnityEngine;
 
 using VRC.SDKBase;
 
+#pragma warning disable CS0649
+
 namespace Mochizuki.VRChat.Interop
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class ToggleButton : UdonSharpBehaviour
     {
+        [SerializeField]
+        private bool initialState;
+
+        [SerializeField]
+        [SyncedEvent]
+        private EventListener listener;
+
+        [SerializeField]
+        private InteropLogger logger;
+
         private bool _hasListener;
         private bool _hasLogger;
         private bool _isInteracted;
@@ -100,18 +114,5 @@ namespace Mochizuki.VRChat.Interop
                 listener.OnInteracted();
             }
         }
-
-#pragma warning disable CS0649
-
-        [SerializeField]
-        private bool initialState;
-
-        [SerializeField]
-        private EventListener listener;
-
-        [SerializeField]
-        private InteropLogger logger;
-
-#pragma warning restore CS0649
     }
 }

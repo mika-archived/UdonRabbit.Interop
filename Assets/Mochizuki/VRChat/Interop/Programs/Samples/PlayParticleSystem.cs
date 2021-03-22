@@ -3,15 +3,26 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+using Mochizuki.VRChat.Interop.Validator.Attributes;
+
 using UdonSharp;
 
 using UnityEngine;
+
+#pragma warning disable CS0649
 
 namespace Mochizuki.VRChat.Interop.Samples
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     public class PlayParticleSystem : UdonSharpBehaviour
     {
+        [SerializeField]
+        [RequestSyncedEvent]
+        private EventListener listener;
+
+        [SerializeField]
+        private ParticleSystem particle;
+
         private void Start()
         {
             particle.Stop(true);
@@ -24,15 +35,5 @@ namespace Mochizuki.VRChat.Interop.Samples
 
             particle.Play(true);
         }
-
-#pragma warning disable CS0649
-
-        [SerializeField]
-        private EventListener listener;
-
-        [SerializeField]
-        private ParticleSystem particle;
-
-#pragma warning restore CS0649
     }
 }

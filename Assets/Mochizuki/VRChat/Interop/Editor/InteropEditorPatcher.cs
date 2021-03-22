@@ -38,6 +38,13 @@ namespace Mochizuki.VRChat.Interop
     {
         private static readonly MetadataReference[] References;
 
+        private static readonly Type[] Validators =
+        {
+            typeof(RequestArgumentTypeAttribute),
+            typeof(RequestNoSyncedEventAttribute),
+            typeof(RequestSyncedEventAttribute)
+        };
+
         static InteropEditorPatcher()
         {
             References = new MetadataReference[]
@@ -47,22 +54,23 @@ namespace Mochizuki.VRChat.Interop
                 MetadataReference.CreateFromFile(typeof(Editor).Assembly.Location), // UnityEditor
                 MetadataReference.CreateFromFile(typeof(UdonBehaviour).Assembly.Location), // VRC.Udon
                 MetadataReference.CreateFromFile(typeof(UdonSharpBehaviour).Assembly.Location), // UdonSharp
-                MetadataReference.CreateFromFile(typeof(EventListener).Assembly.Location) // Mochizuki.VRChat.Interop
+                MetadataReference.CreateFromFile(typeof(EventListener).Assembly.Location), // Mochizuki.VRChat.Interop
+                MetadataReference.CreateFromFile(typeof(RequestArgumentTypeAttribute).Assembly.Location) // Mochizuki.VRChat.Interop.Validator
             };
 
             var harmony = new Harmony("moe.mochizuki.vrchat.interop");
 
-            void ApplyPatchForDrawPublicVariableField()
-            {
-                // patched to https://github.com/MerlinVR/UdonSharp/blob/v0.19.6/Assets/UdonSharp/Editor/Editors/UdonSharpGUI.cs#L1050
-                var original = typeof(UdonSharpGUI).GetMethods(BindingFlags.Static | BindingFlags.NonPublic).FirstOrDefault(w => w.Name == "DrawPublicVariableField");
-                var postfix = typeof(InteropEditorPatcher).GetMethod(nameof(DrawPublicVariableFieldPostfix));
-                var finalizer = typeof(InteropEditorPatcher).GetMethod(nameof(DrawPublicVariableFieldFinalizer));
+            ApplyPatchForDrawPublicVariableField(harmony);
+        }
 
-                harmony.Patch(original, null, new HarmonyMethod(postfix), null, new HarmonyMethod(finalizer));
-            }
+        private static void ApplyPatchForDrawPublicVariableField(Harmony harmony)
+        {
+            // patched to https://github.com/MerlinVR/UdonSharp/blob/v0.19.6/Assets/UdonSharp/Editor/Editors/UdonSharpGUI.cs#L1050
+            var original = typeof(UdonSharpGUI).GetMethods(BindingFlags.Static | BindingFlags.NonPublic).FirstOrDefault(w => w.Name == "DrawPublicVariableField");
+            var postfix = typeof(InteropEditorPatcher).GetMethod(nameof(DrawPublicVariableFieldPostfix));
+            var finalizer = typeof(InteropEditorPatcher).GetMethod(nameof(DrawPublicVariableFieldFinalizer));
 
-            ApplyPatchForDrawPublicVariableField();
+            harmony.Patch(original, null, new HarmonyMethod(postfix), null, new HarmonyMethod(finalizer));
         }
 
         [PublicAPI]
@@ -74,7 +82,7 @@ namespace Mochizuki.VRChat.Interop
         // ReSharper disable once InconsistentNaming
         public static void DrawPublicVariableFieldPostfix(UdonBehaviour currentBehaviour, string symbol, Type variableType, ref object __result)
         {
-            var (r, attr) = ShouldCheckTypeValidation(currentBehaviour, symbol, variableType, __result);
+            var (r, attrs) = ShouldRunValidator(currentBehaviour, symbol, variableType, __result);
             if (!r)
                 return;
 
@@ -85,20 +93,32 @@ namespace Mochizuki.VRChat.Interop
                 var (root, model) = CreateAnalysisModels(behaviour);
                 var argumentPasser = CollectEventListenerArgumentPassingSyntax(root);
                 var declarationSymbol = FindEventListenerVariableDeclarationSyntax(root, model, refSymbol);
+                var hasWarnings = false;
 
-                foreach (var syntax in argumentPasser)
+                if (attrs.OfType<RequestArgumentTypeAttribute>().Any())
                 {
-                    var (isValidReference, isTypeEquals) = IsArgumentEqualsToRequested(declarationSymbol, syntax, model, attr.RequestedType);
-
-                    if (!isValidReference)
-                        continue;
-
-                    if (isTypeEquals)
-                        continue;
-
-                    EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting {attr.RequestedType.FullName}, but the sender is sending other type(s), so it could not be applied.", MessageType.Warning);
-                    return;
+                    var attr = attrs.OfType<RequestArgumentTypeAttribute>().First();
+                    if (!IsArgumentEqualsToRequested(declarationSymbol, argumentPasser, model, attr.RequestedType))
+                    {
+                        EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting {attr.RequestedType.FullName}, but the one or more sender is sending other type(s), so it could not be applied.", MessageType.Warning);
+                        hasWarnings = true;
+                    }
                 }
+
+                if (attrs.OfType<RequestSyncedEventAttribute>().Any() && !IsEventListenerEqualsToRequested(declarationSymbol, true))
+                {
+                    EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting `Synced`, but the one or more sender is sending `NoSynced` or `Any`, so it could not be applied.", MessageType.Warning);
+                    hasWarnings = true;
+                }
+
+                if (attrs.OfType<RequestNoSyncedEventAttribute>().Any() && !IsEventListenerEqualsToRequested(declarationSymbol, false))
+                {
+                    EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting `NoSynced`, but the one or more sender is sending `Synced` or `Any`, so it could not be applied.", MessageType.Warning);
+                    hasWarnings = true;
+                }
+
+                if (hasWarnings)
+                    return;
             }
         }
 
@@ -109,7 +129,7 @@ namespace Mochizuki.VRChat.Interop
                 throw e;
         }
 
-        private static (bool, RequestArgumentTypeAttribute) ShouldCheckTypeValidation(UdonBehaviour currentBehaviour, string symbol, Type variableType, object @return)
+        private static (bool, List<Attribute>) ShouldRunValidator(UdonBehaviour currentBehaviour, string symbol, Type variableType, object @return)
         {
             if (@return == null || variableType != typeof(UdonBehaviour))
                 return (false, null);
@@ -125,8 +145,8 @@ namespace Mochizuki.VRChat.Interop
             if (variable == null)
                 return (false, null);
 
-            var attr = variable.GetCustomAttribute<RequestArgumentTypeAttribute>();
-            return attr == null ? (false, null) : (true, attr);
+            var attrs = Validators.Select(validator => variable.GetCustomAttribute(validator)).Where(attr => attr != null).ToList();
+            return attrs.Count == 0 ? (false, null) : (true, attrs);
         }
 
         private static List<(UdonBehaviour, string)> CollectListenerReferences(UdonBehaviour currentBehaviour, object @return)
@@ -184,22 +204,41 @@ namespace Mochizuki.VRChat.Interop
             return model.GetDeclaredSymbol(declaration);
         }
 
-        private static (bool, bool) IsArgumentEqualsToRequested(ISymbol symbol, MemberAccessExpressionSyntax syntax, SemanticModel model, Type t)
+        private static bool IsArgumentEqualsToRequested(ISymbol symbol, IEnumerable<MemberAccessExpressionSyntax> callers, SemanticModel model, Type t)
         {
-            var caller = model.GetSymbolInfo(syntax.Expression);
-            if (!symbol.Equals(caller.Symbol))
-                return (false, false);
+            foreach (var syntax in callers)
+            {
+                var caller = model.GetSymbolInfo(syntax.Expression);
+                if (!symbol.Equals(caller.Symbol))
+                    continue;
 
-            var invocation = (InvocationExpressionSyntax) syntax.Parent;
-            var accessor = (MemberAccessExpressionSyntax) invocation.Expression;
-            var identifier = (IdentifierNameSyntax) accessor.Name;
-            if (identifier.Identifier.Text != nameof(EventListener.SetArgument))
-                return (false, false);
+                var invocation = (InvocationExpressionSyntax) syntax.Parent;
+                var accessor = (MemberAccessExpressionSyntax) invocation.Expression;
+                var identifier = (IdentifierNameSyntax) accessor.Name;
+                if (identifier.Identifier.Text != nameof(EventListener.SetArgument))
+                    continue;
 
-            var argument = invocation.ArgumentList.Arguments[0];
-            var declaration = model.GetTypeInfo(argument.Expression);
+                var argument = invocation.ArgumentList.Arguments[0];
+                var declaration = model.GetTypeInfo(argument.Expression);
 
-            return (true, declaration.Type.Equals(model.Compilation.GetTypeByMetadataName(t.FullName)));
+                if (!declaration.Type.Equals(model.Compilation.GetTypeByMetadataName(t.FullName)))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsEventListenerEqualsToRequested(ISymbol symbol, bool requestSynced)
+        {
+            var attrs = symbol.GetAttributes().Select(w => w.AttributeClass?.ToDisplayString()).ToList();
+            var isSynced = attrs.Any(w => w == typeof(SyncedEventAttribute).FullName);
+            var isNoSynced = attrs.Any(w => w == typeof(NoSyncedEventAttribute).FullName);
+
+            if (!requestSynced)
+                return !isSynced && isNoSynced;
+            if (isSynced)
+                return true;
+            return !isNoSynced;
         }
     }
 }

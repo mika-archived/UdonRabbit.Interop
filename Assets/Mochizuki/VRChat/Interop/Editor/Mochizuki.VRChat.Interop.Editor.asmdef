@@ -17,6 +17,7 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "0Harmony.dll",
+        "System.Collections.Immutable.dll",
         "Microsoft.CodeAnalysis.dll",
         "Microsoft.CodeAnalysis.CSharp.dll",
         "VRCSDK3.dll",
