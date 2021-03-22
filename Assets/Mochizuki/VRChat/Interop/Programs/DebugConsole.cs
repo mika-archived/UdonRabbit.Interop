@@ -9,6 +9,8 @@ using UdonSharp;
 
 using UnityEngine;
 
+#pragma warning disable CS0649
+
 namespace Mochizuki.VRChat.Interop
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
