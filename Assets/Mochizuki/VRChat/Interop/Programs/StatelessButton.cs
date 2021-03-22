@@ -13,7 +13,7 @@ using VRC.Udon.Common.Interfaces;
 
 #pragma warning disable CS0649
 
-namespace Mochizuki.VRChat.Interop
+namespace Mochizuki.VRChat.Interop.Synced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     public class StatelessButton : UdonSharpBehaviour
@@ -26,7 +26,6 @@ namespace Mochizuki.VRChat.Interop
         private InteropLogger logger;
 
         private bool _hasListener;
-
         private bool _hasLogger;
 
         private void Start()

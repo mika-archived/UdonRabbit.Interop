@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+using Mochizuki.VRChat.Interop.Validator.Attributes;
+
 using UdonSharp;
 
 using UnityEngine;
@@ -12,17 +14,18 @@ using UnityEngine;
 namespace Mochizuki.VRChat.Interop.ReceiverSamples
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
-    public class PlayParticleSystem : UdonSharpBehaviour
+    public class SwitchGameObject : UdonSharpBehaviour
     {
         [SerializeField]
+        [RequestArgumentType(typeof(bool))]
         private EventListener listener;
 
         [SerializeField]
-        private ParticleSystem particle;
+        private GameObject go;
 
         private void Start()
         {
-            particle.Stop(true);
+            go.SetActive((bool) listener.GetArgument());
         }
 
         private void Update()
@@ -30,7 +33,7 @@ namespace Mochizuki.VRChat.Interop.ReceiverSamples
             if (!listener.IsInteracted())
                 return;
 
-            particle.Play(true);
+            go.SetActive((bool) listener.GetArgument());
         }
     }
 }

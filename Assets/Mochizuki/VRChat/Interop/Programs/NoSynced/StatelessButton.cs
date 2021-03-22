@@ -3,34 +3,42 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+using Mochizuki.VRChat.Interop.Validator.Attributes;
+
 using UdonSharp;
 
 using UnityEngine;
 
 #pragma warning disable CS0649
 
-namespace Mochizuki.VRChat.Interop.ReceiverSamples
+namespace Mochizuki.VRChat.Interop.NoSynced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
-    public class PlayParticleSystem : UdonSharpBehaviour
+    public class StatelessButton : UdonSharpBehaviour
     {
         [SerializeField]
+        [NoSyncedEvent]
         private EventListener listener;
 
         [SerializeField]
-        private ParticleSystem particle;
+        private InteropLogger logger;
+
+        private bool _hasListener;
+        private bool _hasLogger;
 
         private void Start()
         {
-            particle.Stop(true);
+            _hasListener = listener != null;
+            _hasLogger = logger != null;
         }
 
-        private void Update()
+        public override void Interact()
         {
-            if (!listener.IsInteracted())
-                return;
+            if (_hasLogger)
+                logger.LogInfo($"{nameof(Interact)} - OnInteracted (Not Synced, No Request Synchronized)");
 
-            particle.Play(true);
+            if (_hasListener)
+                listener.OnInteracted();
         }
     }
 }

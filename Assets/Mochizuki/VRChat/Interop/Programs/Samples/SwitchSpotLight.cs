@@ -11,14 +11,13 @@ using UnityEngine;
 
 #pragma warning disable CS0649
 
-namespace Mochizuki.VRChat.Interop.Samples
+namespace Mochizuki.VRChat.Interop.ReceiverSamples
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     public class SwitchSpotLight : UdonSharpBehaviour
     {
         [SerializeField]
         [RequestArgumentType(typeof(bool))]
-        [RequestSyncedEvent]
         private EventListener listener;
 
         [SerializeField]

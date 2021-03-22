@@ -13,16 +13,17 @@ using VRC.SDKBase;
 
 #pragma warning disable CS0649
 
-namespace Mochizuki.VRChat.Interop
+namespace Mochizuki.VRChat.Interop.Synced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
+    [DefaultExecutionOrder(-1)]
     public class ToggleButton : UdonSharpBehaviour
     {
         [SerializeField]
         private bool initialState;
 
         [SerializeField]
-        [SyncedEvent]
+        [NoSyncedEvent]
         private EventListener listener;
 
         [SerializeField]
@@ -41,6 +42,9 @@ namespace Mochizuki.VRChat.Interop
             _state = initialState;
             _hasListener = listener != null;
             _hasLogger = logger != null;
+
+            if (_hasListener)
+                listener.SetArgument(initialState);
         }
 
         private void Update()
