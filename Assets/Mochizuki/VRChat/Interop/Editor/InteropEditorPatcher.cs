@@ -42,7 +42,19 @@ namespace Mochizuki.VRChat.Interop
         {
             typeof(RequestArgumentTypeAttribute),
             typeof(RequestNoSyncedEventAttribute),
-            typeof(RequestSyncedEventAttribute)
+            typeof(RequestSyncedEventAttribute),
+            typeof(RequestValidateEventAttribute)
+        };
+
+        private static readonly Dictionary<string, string> MethodCorrespondenceTable = new Dictionary<string, string>
+        {
+            { nameof(EventListener.GetArgument), nameof(EventListener.SetArgument) },
+            { nameof(EventListener.IsInteracted), nameof(EventListener.OnInteracted) },
+            { nameof(EventListener.IsDropped), nameof(EventListener.OnDropped) },
+            { nameof(EventListener.IsPickupped), nameof(EventListener.OnPickupped) },
+            { nameof(EventListener.IsPickupUseDowned), nameof(EventListener.OnPickupUseDowned) },
+            { nameof(EventListener.IsPickupUseUpped), nameof(EventListener.OnPickupUseUpped) },
+            { nameof(EventListener.IsSomeEventIsFired), "" }
         };
 
         static InteropEditorPatcher()
@@ -90,13 +102,13 @@ namespace Mochizuki.VRChat.Interop
 
             foreach (var (behaviour, refSymbol) in callers)
             {
-                var (root, model) = CreateAnalysisModels(behaviour);
-                var argumentPasser = CollectEventListenerArgumentPassingSyntax(root);
-                var declarationSymbol = FindEventListenerVariableDeclarationSyntax(root, model, refSymbol);
+                var (node, model) = CreateAnalysisModels(behaviour);
+                var declarationSymbol = FindEventListenerVariableDeclarationSyntax(node, model, refSymbol);
                 var hasWarnings = false;
 
                 if (attrs.OfType<RequestArgumentTypeAttribute>().Any())
                 {
+                    var argumentPasser = CollectEventListenerArgumentPassingSyntax(node, model, declarationSymbol);
                     var attr = attrs.OfType<RequestArgumentTypeAttribute>().First();
                     if (!IsArgumentEqualsToRequested(declarationSymbol, argumentPasser, model, attr.RequestedType, out var assign))
                     {
@@ -114,6 +126,12 @@ namespace Mochizuki.VRChat.Interop
                 if (attrs.OfType<RequestNoSyncedEventAttribute>().Any() && !IsEventListenerEqualsToRequested(declarationSymbol, false))
                 {
                     EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting `NoSynced`, but the one or more sender is sending `Synced` or `Any`, so it could not be applied.", MessageType.Warning);
+                    hasWarnings = true;
+                }
+
+                if (attrs.OfType<RequestValidateEventAttribute>().Any() && !IsSenderSupportRequestedEvents(currentBehaviour, symbol, node, model, declarationSymbol, out var e))
+                {
+                    EditorGUILayout.HelpBox($"The receiver ({currentBehaviour.name}; this) is requesting `{e}`, but the one or more sender is not emit `{e}`, so it could not be applied.", MessageType.Warning);
                     hasWarnings = true;
                 }
 
@@ -187,14 +205,15 @@ namespace Mochizuki.VRChat.Interop
             return (syntax.GetRoot(), compilationUnit.GetSemanticModel(syntax));
         }
 
-        private static IEnumerable<MemberAccessExpressionSyntax> CollectEventListenerArgumentPassingSyntax(SyntaxNode node)
+        private static IEnumerable<MemberAccessExpressionSyntax> CollectEventListenerArgumentPassingSyntax(SyntaxNode node, SemanticModel model, ISymbol symbol)
         {
             return node.DescendantNodes().OfType<InvocationExpressionSyntax>().Select(w => w.Expression).Where(w =>
             {
-                if (w is MemberAccessExpressionSyntax syntax)
-                    return syntax.Name.Identifier.Text == nameof(EventListener.SetArgument);
+                if (!(w is MemberAccessExpressionSyntax syntax))
+                    return false;
 
-                return false;
+                var si = model.GetSymbolInfo(syntax.Expression);
+                return symbol.Equals(si.Symbol) && syntax.Name.Identifier.Text == nameof(EventListener.SetArgument);
             }).Cast<MemberAccessExpressionSyntax>();
         }
 
@@ -243,6 +262,59 @@ namespace Mochizuki.VRChat.Interop
             if (isSynced)
                 return true;
             return !isNoSynced;
+        }
+
+        private static bool IsSenderSupportRequestedEvents(UdonBehaviour behaviour, string s, SyntaxNode node, SemanticModel model, ISymbol symbol, out string @event)
+        {
+            var (n, m) = CreateAnalysisModels(behaviour);
+            var declarationSymbol = FindEventListenerVariableDeclarationSyntax(n, m, s);
+
+            var callee = n.DescendantNodes().OfType<InvocationExpressionSyntax>().Select(w => w.Expression).Where(w =>
+            {
+                if (!(w is MemberAccessExpressionSyntax syntax))
+                    return false;
+
+                var c = m.GetSymbolInfo(syntax.Expression);
+                return declarationSymbol.Equals(c.Symbol);
+            }).Cast<MemberAccessExpressionSyntax>().ToList();
+
+            if (callee.Count == 0)
+            {
+                @event = null;
+                return true;
+            }
+
+            var requestEvents = callee.Select(w => w.Name.Identifier.Text)
+                                      .Distinct()
+                                      .Where(w => MethodCorrespondenceTable.ContainsKey(w))
+                                      .Select(w => MethodCorrespondenceTable[w])
+                                      .Where(w => !string.IsNullOrWhiteSpace(w))
+                                      .OrderBy(w => w)
+                                      .ToList();
+
+            var callers = node.DescendantNodes().OfType<InvocationExpressionSyntax>().Select(w => w.Expression).Where(w =>
+            {
+                if (!(w is MemberAccessExpressionSyntax syntax))
+                    return false;
+
+                var c = model.GetSymbolInfo(syntax.Expression);
+                return symbol.Equals(c.Symbol);
+            }).Cast<MemberAccessExpressionSyntax>();
+
+            var emitEvents = callers.Select(w => w.Name.Identifier.Text)
+                                    .Distinct()
+                                    .OrderBy(w => w)
+                                    .ToList();
+
+            var missing = requestEvents.Except(emitEvents).ToList();
+            if (!missing.Any())
+            {
+                @event = null;
+                return true;
+            }
+
+            @event = missing.First();
+            return false;
         }
     }
 }

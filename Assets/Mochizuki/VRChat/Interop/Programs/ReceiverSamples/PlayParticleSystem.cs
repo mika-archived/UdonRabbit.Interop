@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  *------------------------------------------------------------------------------------------*/
 
+using Mochizuki.VRChat.Interop.Validator.Attributes;
+
 using UdonSharp;
 
 using UnityEngine;
@@ -15,6 +17,7 @@ namespace Mochizuki.VRChat.Interop.ReceiverSamples
     public class PlayParticleSystem : UdonSharpBehaviour
     {
         [SerializeField]
+        [RequestValidateEvent]
         private EventListener listener;
 
         [SerializeField]

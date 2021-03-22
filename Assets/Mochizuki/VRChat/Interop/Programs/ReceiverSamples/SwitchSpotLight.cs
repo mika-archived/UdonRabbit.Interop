@@ -18,6 +18,7 @@ namespace Mochizuki.VRChat.Interop.ReceiverSamples
     {
         [SerializeField]
         [RequestArgumentType(typeof(bool))]
+        [RequestValidateEvent]
         private EventListener listener;
 
         [SerializeField]
