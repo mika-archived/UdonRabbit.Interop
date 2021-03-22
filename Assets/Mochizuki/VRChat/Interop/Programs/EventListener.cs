@@ -22,6 +22,11 @@ namespace Mochizuki.VRChat.Interop
             return _object;
         }
 
+        public bool IsSomeEventIsFired()
+        {
+            return IsPickupped() || IsDropped() || IsPickupped() || IsPickupUseDowned() || IsPickupUseUpped();
+        }
+
         #region OnInteracted
 
         private bool _isInteracted;
@@ -97,6 +102,26 @@ namespace Mochizuki.VRChat.Interop
                 return false;
 
             _isPickupUseDowned = false;
+            return true;
+        }
+
+        #endregion
+
+        #region OnPickupUseUpped
+
+        private bool _isPickupUseUpped;
+
+        public void OnPickupUseUpped()
+        {
+            _isPickupUseUpped = true;
+        }
+
+        public bool IsPickupUseUpped()
+        {
+            if (!_isPickupUseUpped)
+                return false;
+
+            _isPickupUseUpped = false;
             return true;
         }
 

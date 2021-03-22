@@ -1,8 +1,15 @@
-﻿using Mochizuki.VRChat.Interop.Validator.Attributes;
+﻿/*-------------------------------------------------------------------------------------------
+ * Copyright (c) Natsuneko. All rights reserved.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ *------------------------------------------------------------------------------------------*/
+
+using Mochizuki.VRChat.Interop.Validator.Attributes;
 
 using UdonSharp;
 
 using UnityEngine;
+
+#pragma warning disable CS0649
 
 namespace Mochizuki.VRChat.Interop.NoSynced
 {
