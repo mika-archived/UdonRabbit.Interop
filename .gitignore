@@ -60,10 +60,11 @@ crashlytics-build.properties
 
 # Imported Assets
 [Aa]ssets/Booth*
-[Aa]ssets/Gizmos/UdonSharp*
+[Aa]ssets/Gizmos*
 [Aa]ssets/SerializedUdonPrograms*
 [Aa]ssets/Udon*
 [Aa]ssets/UdonSharp*
 [Aa]ssets/Vendors*
 [Aa]ssets/VRChat Examples*
 [Aa]ssets/VRCSDK*
+[Pp]ackages/*
