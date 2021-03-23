@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: StatelessButton
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 22c9496958be8dd449a6779cae518221,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: c4aafaebf32f7c546817d81e13e8799a,
     type: 2}
   udonAssembly: 
   assemblyError: 
