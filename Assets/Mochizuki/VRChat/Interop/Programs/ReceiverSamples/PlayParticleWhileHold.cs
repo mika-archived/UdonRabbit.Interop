@@ -9,6 +9,8 @@ using UnityEngine;
 
 namespace Mochizuki.VRChat.Interop.ReceiverSamples
 {
+    [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
+    [DefaultExecutionOrder(20000)]
     public class PlayParticleWhileHold : UdonSharpBehaviour
     {
         [SerializeField]
@@ -24,10 +26,10 @@ namespace Mochizuki.VRChat.Interop.ReceiverSamples
 
         private void Update()
         {
-            if (listener.IsPickupUseDowned())
+            if (listener.IsPickupUseDown())
                 effect.Play();
 
-            if (listener.IsPickupUseUpped())
+            if (listener.IsPickupUseUp())
                 effect.Stop();
         }
     }

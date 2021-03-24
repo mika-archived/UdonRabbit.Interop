@@ -14,6 +14,7 @@ using UnityEngine;
 namespace Mochizuki.VRChat.Interop.NoSynced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
+    [DefaultExecutionOrder(10000)]
     public class StatelessButton : UdonSharpBehaviour
     {
         [SerializeField]
@@ -38,7 +39,7 @@ namespace Mochizuki.VRChat.Interop.NoSynced
                 logger.LogInfo($"{nameof(Interact)} - OnInteracted (Not Synced, No Request Synchronized)");
 
             if (_hasListener)
-                listener.OnInteracted();
+                listener.EmitInteract();
         }
     }
 }

@@ -16,6 +16,7 @@ using VRC.Udon.Common.Interfaces;
 namespace Mochizuki.VRChat.Interop.Synced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
+    [DefaultExecutionOrder(10000)]
     public class StatelessButton : UdonSharpBehaviour
     {
         [SerializeField]
@@ -47,7 +48,7 @@ namespace Mochizuki.VRChat.Interop.Synced
                 logger.LogInfo($"{nameof(OnInteracted)} - Event Called");
 
             if (_hasListener)
-                listener.OnInteracted();
+                listener.EmitInteract();
         }
     }
 }

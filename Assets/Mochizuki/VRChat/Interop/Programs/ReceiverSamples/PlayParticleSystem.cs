@@ -14,6 +14,7 @@ using UnityEngine;
 namespace Mochizuki.VRChat.Interop.ReceiverSamples
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
+    [DefaultExecutionOrder(20000)]
     public class PlayParticleSystem : UdonSharpBehaviour
     {
         [SerializeField]
@@ -30,7 +31,7 @@ namespace Mochizuki.VRChat.Interop.ReceiverSamples
 
         private void Update()
         {
-            if (!listener.IsInteracted())
+            if (!listener.IsInteract())
                 return;
 
             particle.Play(true);

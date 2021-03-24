@@ -16,7 +16,7 @@ using VRC.SDKBase;
 namespace Mochizuki.VRChat.Interop.Synced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-    [DefaultExecutionOrder(-1)]
+    [DefaultExecutionOrder(10000)]
     public class ToggleButton : UdonSharpBehaviour
     {
         [SerializeField]
@@ -76,7 +76,7 @@ namespace Mochizuki.VRChat.Interop.Synced
             if (_hasListener)
             {
                 listener.SetArgument(_localState);
-                listener.OnInteracted();
+                listener.EmitInteract();
             }
 
             RequestSerialization();
@@ -115,7 +115,7 @@ namespace Mochizuki.VRChat.Interop.Synced
             if (_hasListener)
             {
                 listener.SetArgument(_localState);
-                listener.OnInteracted();
+                listener.EmitInteract();
             }
         }
     }

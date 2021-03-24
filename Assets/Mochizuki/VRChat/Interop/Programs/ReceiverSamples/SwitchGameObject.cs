@@ -14,10 +14,12 @@ using UnityEngine;
 namespace Mochizuki.VRChat.Interop.ReceiverSamples
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
+    [DefaultExecutionOrder(20000)]
     public class SwitchGameObject : UdonSharpBehaviour
     {
         [SerializeField]
         [RequestArgumentType(typeof(bool))]
+        [RequestValidateEvent]
         private EventListener listener;
 
         [SerializeField]
@@ -30,7 +32,7 @@ namespace Mochizuki.VRChat.Interop.ReceiverSamples
 
         private void Update()
         {
-            if (!listener.IsInteracted())
+            if (!listener.IsInteract())
                 return;
 
             go.SetActive((bool) listener.GetArgument());

@@ -16,6 +16,7 @@ using UnityEngine;
 namespace Mochizuki.VRChat.Interop.NoSynced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
+    [DefaultExecutionOrder(10000)]
     public class KitsunePickup : UdonSharpBehaviour
     {
         [SerializeField]
@@ -66,7 +67,7 @@ namespace Mochizuki.VRChat.Interop.NoSynced
                 logger.LogInfo($"{nameof(OnPickup)} - event fired but worked only local");
 
             if (_hasListener)
-                listener.OnPickupped();
+                listener.EmitPickup();
         }
 
         public override void OnPickupUseDown()
@@ -75,7 +76,7 @@ namespace Mochizuki.VRChat.Interop.NoSynced
                 logger.LogInfo($"{nameof(OnPickupUseDown)} - event fired but worked only local");
 
             if (_hasListener)
-                listener.OnPickupUseDowned();
+                listener.EmitPickupUseDown();
         }
 
         public override void OnPickupUseUp()
@@ -84,7 +85,7 @@ namespace Mochizuki.VRChat.Interop.NoSynced
                 logger.LogInfo($"{nameof(OnPickupUseUp)} - event fired but worked only local");
 
             if (_hasListener)
-                listener.OnPickupUseUpped();
+                listener.EmitPickupUseUp();
         }
 
         public override void OnDrop()
@@ -93,7 +94,7 @@ namespace Mochizuki.VRChat.Interop.NoSynced
                 logger.LogInfo($"{nameof(OnDrop)} - event fired but worked only local");
 
             if (_hasListener)
-                listener.OnDropped();
+                listener.EmitDrop();
 
             _droppedAt = GetUnixTimeMills();
         }

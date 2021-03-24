@@ -14,7 +14,7 @@ using UnityEngine;
 namespace Mochizuki.VRChat.Interop.NoSynced
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
-    [DefaultExecutionOrder(-1)]
+    [DefaultExecutionOrder(10000)]
     public class ToggleButton : UdonSharpBehaviour
     {
         [SerializeField]
@@ -51,7 +51,7 @@ namespace Mochizuki.VRChat.Interop.NoSynced
             if (_hasListener)
             {
                 listener.SetArgument(_localState);
-                listener.OnInteracted();
+                listener.EmitInteract();
             }
         }
     }
