@@ -43,6 +43,10 @@ public class SomeSender : UdonSharpBehaviour
 }
 ```
 
+You are done writing th code, attach this UdonSharpBehaviour ro any your GameObject.  
+And then, create an empty GameObject as a child of it, attach `EventListener`.  
+Finally, set its `EventListener` GameObject to receiver's `listener` variable, and create a Prefab.
+
 ### The Receiver
 
 You create the gimmick as usual using `UdonSharpBehaviour`.  
@@ -73,6 +77,8 @@ public class SomeSender : UdonSharpBehaviour
     }
 }
 ```
+
+
 
 ## Documentation
 
